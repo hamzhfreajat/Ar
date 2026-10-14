@@ -36,8 +36,9 @@ services:
     volumes:
       - kitabcom-pgdata:/var/lib/postgresql/data
     healthcheck:
-      # The container's own variables ($$ keeps Compose from filling them in)
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      # The container's own user, or the image's default when the platform did not pass it
+      # ($$ keeps Compose from filling it in)
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER:-postgres}\""]
       interval: 5s
       timeout: 5s
       retries: 10

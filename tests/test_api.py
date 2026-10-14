@@ -83,3 +83,22 @@ def test_a_badly_missed_sound_caps_the_score():
     assert azure_speech.read_result(phonemes(0, 6, 100, 100))["score"] == 50.0
     assert azure_speech.read_result(phonemes(100, 90, 100, 100))["score"] == 97.5
     assert azure_speech.read_result({"RecognitionStatus": "NoMatch"}) == {"ok": False, "reason": "not understood"}
+
+
+def test_database_settings(monkeypatch):
+    from app import config
+    for name in ("DATABASE_URL", "DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "POSTGRES_PASSWORD", "POSTGRES_USER", "POSTGRES_DB"):
+        monkeypatch.delenv(name, raising=False)
+    assert config._database_url().startswith("sqlite:///")
+
+    # Only the password reached the container: the Postgres image's defaults
+    monkeypatch.setenv("POSTGRES_PASSWORD", "p@ss")
+    assert config._database_url() == "postgresql+psycopg://postgres:p%40ss@db:5432/postgres"
+
+    # Everything docker-compose.yml sets
+    for name, value in {"DB_HOST": "db", "DB_USER": "kitabcom", "DB_PASSWORD": "x/y", "DB_NAME": "kitabcom"}.items():
+        monkeypatch.setenv(name, value)
+    assert config._database_url() == "postgresql+psycopg://kitabcom:x%2Fy@db:5432/kitabcom"
+
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///other.db")
+    assert config._database_url() == "sqlite:///other.db"

@@ -25,16 +25,25 @@ def _read_env_file(path: Path) -> None:
 
 
 def _database_url() -> str:
-    """DATABASE_URL when given; else PostgreSQL from DB_HOST, DB_USER, DB_PASSWORD and DB_NAME
-    (as Docker Compose sets them); else a SQLite file in this folder."""
+    """Where the data lives, from the first of these that is set:
+
+    1. DATABASE_URL.
+    2. DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, as docker-compose.yml sets them.
+    3. POSTGRES_PASSWORD alone: the database service of docker-compose.yml, at host "db".
+       Some platforms pass only the variables entered in their own settings and drop those
+       written in the compose file; the Postgres image then keeps its defaults (user and
+       database "postgres"), and so does this.
+    4. Otherwise a SQLite file in this folder, for running without Docker.
+    """
     if os.environ.get("DATABASE_URL"):
         return os.environ["DATABASE_URL"]
-    host = os.environ.get("DB_HOST")
+    password = os.environ.get("DB_PASSWORD") or os.environ.get("POSTGRES_PASSWORD")
+    host = os.environ.get("DB_HOST") or ("db" if password else "")
     if host:
-        user = quote_plus(os.environ.get("DB_USER", "kitabcom"))
-        password = quote_plus(os.environ.get("DB_PASSWORD", ""))
-        name = os.environ.get("DB_NAME", "kitabcom")
-        return f"postgresql+psycopg://{user}:{password}@{host}:{os.environ.get('DB_PORT', '5432')}/{name}"
+        user = os.environ.get("DB_USER") or os.environ.get("POSTGRES_USER") or "postgres"
+        name = os.environ.get("DB_NAME") or os.environ.get("POSTGRES_DB") or user
+        port = os.environ.get("DB_PORT", "5432")
+        return f"postgresql+psycopg://{quote_plus(user)}:{quote_plus(password or '')}@{host}:{port}/{name}"
     return f"sqlite:///{(ROOT / 'kitabcom.db').as_posix()}"
 
 
