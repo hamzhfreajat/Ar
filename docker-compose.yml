@@ -34,7 +34,7 @@ services:
       POSTGRES_DB: kitabcom
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - kitabcom-db:/var/lib/postgresql/data
+      - kitabcom-pgdata:/var/lib/postgresql/data
     healthcheck:
       # The container's own variables ($$ keeps Compose from filling them in)
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
@@ -43,4 +43,4 @@ services:
       retries: 10
 
 volumes:
-  kitabcom-db:
+  kitabcom-pgdata:
