@@ -1,0 +1,43 @@
+# The app server and its database. Works on Coolify (Docker Compose build pack) and locally:
+#   docker compose up -d --build      then open http://localhost:8090/docs
+#
+# Ports are chosen not to clash with sooqcom (5432, 6432, 8080, 3001): the API is on 8090,
+# and the database is not published at all; only the API reaches it, inside this network.
+#
+# Set these in Coolify's Environment Variables (locally: in a .env file next to this one):
+#   POSTGRES_PASSWORD     any long random string
+#   AZURE_SPEECH_KEY      key of the Azure AI Speech resource
+#   AZURE_SPEECH_REGION   its region, e.g. swedencentral
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: "8090"
+      DATABASE_URL: postgresql+psycopg://kitabcom:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/kitabcom
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
+      DAILY_PRONUNCIATION_CHECKS: ${DAILY_PRONUNCIATION_CHECKS:-60}
+    ports:
+      - "8090:8090"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kitabcom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: kitabcom
+    volumes:
+      - kitabcom-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kitabcom -d kitabcom"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kitabcom-db:
