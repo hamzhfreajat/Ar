@@ -4,7 +4,7 @@
 # Ports are chosen not to clash with sooqcom (5432, 6432, 8080, 3001): the API is on 8090,
 # and the database is not published at all; only the API reaches it, inside this network.
 #
-# Set these in Coolify's Environment Variables (locally: in a .env file next to this one):
+# Set in Coolify's Environment Variables (locally: in a .env file next to this one):
 #   POSTGRES_PASSWORD     any long random string
 #   AZURE_SPEECH_KEY      key of the Azure AI Speech resource
 #   AZURE_SPEECH_REGION   its region, e.g. swedencentral
@@ -13,10 +13,12 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      PORT: "8090"
-      DATABASE_URL: postgresql+psycopg://kitabcom:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/kitabcom
-      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
-      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
+      DB_HOST: db
+      DB_USER: kitabcom
+      DB_NAME: kitabcom
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION}
       DAILY_PRONUNCIATION_CHECKS: ${DAILY_PRONUNCIATION_CHECKS:-60}
     ports:
       - "8090:8090"
@@ -29,12 +31,13 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: kitabcom
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: kitabcom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - kitabcom-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kitabcom -d kitabcom"]
+      # The container's own variables ($$ keeps Compose from filling them in)
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10

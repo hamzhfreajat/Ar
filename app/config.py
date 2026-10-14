@@ -8,6 +8,7 @@ A value already in the environment wins over both files.
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote_plus
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -21,6 +22,20 @@ def _read_env_file(path: Path) -> None:
             continue
         name, value = line.split("=", 1)
         os.environ.setdefault(name.strip(), value.strip())
+
+
+def _database_url() -> str:
+    """DATABASE_URL when given; else PostgreSQL from DB_HOST, DB_USER, DB_PASSWORD and DB_NAME
+    (as Docker Compose sets them); else a SQLite file in this folder."""
+    if os.environ.get("DATABASE_URL"):
+        return os.environ["DATABASE_URL"]
+    host = os.environ.get("DB_HOST")
+    if host:
+        user = quote_plus(os.environ.get("DB_USER", "kitabcom"))
+        password = quote_plus(os.environ.get("DB_PASSWORD", ""))
+        name = os.environ.get("DB_NAME", "kitabcom")
+        return f"postgresql+psycopg://{user}:{password}@{host}:{os.environ.get('DB_PORT', '5432')}/{name}"
+    return f"sqlite:///{(ROOT / 'kitabcom.db').as_posix()}"
 
 
 @dataclass(frozen=True)
@@ -38,7 +53,7 @@ def load_settings() -> Settings:
     _read_env_file(ROOT / ".env")
     _read_env_file(Path.home() / ".kitabcom" / "azure-speech.env")
     return Settings(
-        database_url=os.environ.get("DATABASE_URL", f"sqlite:///{(ROOT / 'kitabcom.db').as_posix()}"),
+        database_url=_database_url(),
         azure_speech_key=os.environ.get("AZURE_SPEECH_KEY", ""),
         azure_speech_region=os.environ.get("AZURE_SPEECH_REGION", "").lower().replace(" ", ""),
         daily_checks=int(os.environ.get("DAILY_PRONUNCIATION_CHECKS", "60")),
